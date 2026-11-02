@@ -200,9 +200,9 @@
   "layout": {
     "columns": 1,
     "sideWidth": 33,
-    "density": "custom",
+    "density": "compact",
     "fontFamily": "sans",
-    "fontSize": 9.75,
+    "fontSize": 10,
     "lineHeight": 1.45,
     "sectionGap": 11,
     "pageMargin": 12,
@@ -214,6 +214,7 @@
     "photoHeight": 32,
     "titleStyle": "line",
     "tagStyle": "soft",
-    "showPhoto": true
+    "showPhoto": true,
+    "stylePreset": "classic"
   }
 }

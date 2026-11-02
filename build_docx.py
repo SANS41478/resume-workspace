@@ -16,6 +16,10 @@ from docx.shared import Mm, Pt, RGBColor
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FONT = "Microsoft YaHei"
+ACTIVE_FONT = "Microsoft YaHei"
+ACTIVE_EAST_FONT = "Microsoft YaHei"
+ACTIVE_SWISS = False
+ACTIVE_BULLET = "•  "
 TEXT = "111827"
 MUTED = "6B7280"
 SOFT = "374151"
@@ -40,7 +44,8 @@ def normalize_hex(value):
     return color.upper()
 
 
-def set_run_font(run, size=None, bold=None, color=None, font=FONT):
+def set_run_font(run, size=None, bold=None, color=None, font=None):
+    font = font or ACTIVE_FONT
     run.font.name = font
     rpr = run._element.get_or_add_rPr()
     rfonts = rpr.find(qn("w:rFonts"))
@@ -49,7 +54,7 @@ def set_run_font(run, size=None, bold=None, color=None, font=FONT):
         rpr.append(rfonts)
     rfonts.set(qn("w:ascii"), font)
     rfonts.set(qn("w:hAnsi"), font)
-    rfonts.set(qn("w:eastAsia"), font)
+    rfonts.set(qn("w:eastAsia"), ACTIVE_EAST_FONT)
     if size is not None:
         run.font.size = Pt(size)
     if bold is not None:
@@ -146,7 +151,7 @@ def add_header_content(container, profile, layout, accent, base_size, first_para
         p.paragraph_format.space_before = Pt(0)
         p.paragraph_format.space_after = Pt(2)
         p.paragraph_format.line_spacing = 1.05
-        add_run(p, name, size=min(26, base_size * 2.15), bold=True, color=TEXT)
+        add_run(p, name, size=min(28, base_size * (2.5 if ACTIVE_SWISS else 2.15)), bold=True, color=TEXT)
 
     if title:
         p = new_para()
@@ -174,7 +179,7 @@ def add_header_content(container, profile, layout, accent, base_size, first_para
         p = new_para()
         p.paragraph_format.space_before = Pt(0)
         p.paragraph_format.space_after = Pt(4)
-        add_run(p, " ｜ ".join(contact_parts), size=base_size * 0.9, color=MUTED)
+        add_run(p, (" / " if ACTIVE_SWISS else " ｜ ").join(contact_parts), size=base_size * 0.9, color=MUTED)
 
     if summary:
         p = new_para()
@@ -196,17 +201,21 @@ def add_divider(doc):
     return divider
 
 
-def add_section_heading(doc, title, accent, base_size, gap, style):
+def add_section_heading(doc, title, accent, base_size, gap, style, number=None):
     heading = doc.add_paragraph()
     heading.paragraph_format.space_before = Pt(max(6, gap * 0.7))
     heading.paragraph_format.space_after = Pt(3)
     heading.paragraph_format.keep_with_next = True
 
-    if style == "line":
+    if number is not None:
+        add_run(heading, f"{number:02d}  ", size=base_size * 0.9, bold=True, color=accent)
+    elif style == "line":
         add_run(heading, "■  ", size=base_size * 0.85, bold=True, color=accent)
     add_run(heading, title, size=base_size + 1.2, bold=True, color=TEXT)
     if style == "underline":
         set_bottom_border(heading, LINE, 6, 2)
+    elif ACTIVE_SWISS:
+        set_bottom_border(heading, "D4D4D4", 4, 2)
     return heading
 
 
@@ -265,7 +274,7 @@ def add_standard_item(doc, section, item, layout, accent, base_size, content_wid
         p.paragraph_format.left_indent = Mm(4.2)
         p.paragraph_format.first_line_indent = Mm(-3.2)
         p.paragraph_format.keep_together = True
-        add_run(p, "•  ", size=base_size, bold=True, color=accent)
+        add_run(p, ACTIVE_BULLET, size=base_size, bold=True, color=accent)
         add_run(p, line, size=base_size, color=SOFT)
         paragraphs.append(p)
 
@@ -316,7 +325,7 @@ def add_tags_item(doc, item, accent, base_size):
         p.paragraph_format.space_after = Pt(1)
         p.paragraph_format.left_indent = Mm(4.2)
         p.paragraph_format.first_line_indent = Mm(-3.2)
-        add_run(p, "•  ", size=base_size, bold=True, color=accent)
+        add_run(p, ACTIVE_BULLET, size=base_size, bold=True, color=accent)
         add_run(p, line, size=base_size, color=SOFT)
         paragraphs.append(p)
 
@@ -325,9 +334,16 @@ def add_tags_item(doc, item, accent, base_size):
 
 
 def build(data, output_path):
+    global ACTIVE_FONT, ACTIVE_EAST_FONT, ACTIVE_SWISS, ACTIVE_BULLET
     profile = data.get("profile") or {}
     layout = data.get("layout") or {}
     sections = [section for section in data.get("sections") or [] if section and section.get("visible", True) is not False]
+
+    style_preset = layout.get("stylePreset") if layout.get("stylePreset") in ("classic", "swiss-ikb", "swiss-red", "swiss-mono") else "classic"
+    ACTIVE_SWISS = style_preset.startswith("swiss")
+    ACTIVE_FONT = "Arial" if ACTIVE_SWISS else "Microsoft YaHei"
+    ACTIVE_EAST_FONT = "Microsoft YaHei"
+    ACTIVE_BULLET = "▪  " if ACTIVE_SWISS else "•  "
 
     base_size = clamp(layout.get("fontSize"), 10, 9, 13)
     line_height = clamp(layout.get("lineHeight"), 1.45, 1.3, 1.9)
@@ -335,7 +351,7 @@ def build(data, output_path):
     margin = clamp(layout.get("pageMargin"), 12, 8, 20)
     accent = normalize_hex(layout.get("accent"))
     photo_width = clamp(layout.get("photoWidth"), 25, 18, 35)
-    title_style = layout.get("titleStyle") if layout.get("titleStyle") in ("line", "underline", "plain") else "line"
+    title_style = layout.get("titleStyle") if layout.get("titleStyle") in ("line", "underline", "plain", "numbered") else "line"
     show_photo = layout.get("showPhoto", True) is not False
 
     content_width = content_width_mm(layout)
@@ -350,7 +366,7 @@ def build(data, output_path):
     section.right_margin = Mm(margin)
 
     normal = doc.styles["Normal"]
-    normal.font.name = FONT
+    normal.font.name = ACTIVE_FONT
     normal.font.size = Pt(base_size)
     normal.paragraph_format.space_after = Pt(0)
     normal.paragraph_format.line_spacing = line_height
@@ -359,9 +375,9 @@ def build(data, output_path):
     if rfonts is None:
         rfonts = OxmlElement("w:rFonts")
         rpr.append(rfonts)
-    rfonts.set(qn("w:eastAsia"), FONT)
-    rfonts.set(qn("w:ascii"), FONT)
-    rfonts.set(qn("w:hAnsi"), FONT)
+    rfonts.set(qn("w:eastAsia"), ACTIVE_EAST_FONT)
+    rfonts.set(qn("w:ascii"), ACTIVE_FONT)
+    rfonts.set(qn("w:hAnsi"), ACTIVE_FONT)
 
     photo = str(profile.get("photo") or "").split("?")[0].strip()
     photo_path = ""
@@ -395,12 +411,15 @@ def build(data, output_path):
 
     add_divider(doc)
 
+    section_number = 0
     for section_data in sections:
         items = [item for item in section_data.get("items") or [] if isinstance(item, dict) and item_has_content(item)]
         if not items:
             continue
 
-        add_section_heading(doc, str(section_data.get("title") or "未命名模块"), accent, base_size, gap, title_style)
+        section_number += 1
+        number = section_number if title_style == "numbered" else None
+        add_section_heading(doc, str(section_data.get("title") or "未命名模块"), accent, base_size, gap, title_style, number)
         if section_data.get("type") == "tags":
             for item in items:
                 add_tags_item(doc, item, accent, base_size)

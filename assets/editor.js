@@ -22,13 +22,49 @@
     photoHeight: 32,
     titleStyle: 'line',
     tagStyle: 'soft',
-    showPhoto: true
+    showPhoto: true,
+    stylePreset: 'classic'
   };
 
   var DENSITY = {
     compact: { fontSize: 10, lineHeight: 1.45, sectionGap: 11, pageMargin: 12 },
     standard: { fontSize: 10.5, lineHeight: 1.55, sectionGap: 14, pageMargin: 14 },
     loose: { fontSize: 11.5, lineHeight: 1.7, sectionGap: 18, pageMargin: 16 }
+  };
+
+  var STYLE_PRESETS = {
+    classic: {
+      accent: '#1d4ed8',
+      fontFamily: 'sans',
+      titleStyle: 'line',
+      tagStyle: 'soft',
+      photoShape: 'rounded',
+      headerAlign: 'left'
+    },
+    'swiss-ikb': {
+      accent: '#002FA7',
+      fontFamily: 'sans',
+      titleStyle: 'numbered',
+      tagStyle: 'square',
+      photoShape: 'square',
+      headerAlign: 'left'
+    },
+    'swiss-red': {
+      accent: '#E30613',
+      fontFamily: 'sans',
+      titleStyle: 'numbered',
+      tagStyle: 'square',
+      photoShape: 'square',
+      headerAlign: 'left'
+    },
+    'swiss-mono': {
+      accent: '#111111',
+      fontFamily: 'sans',
+      titleStyle: 'numbered',
+      tagStyle: 'square',
+      photoShape: 'square',
+      headerAlign: 'left'
+    }
   };
 
   var CLIENT_ID = (window.crypto && window.crypto.randomUUID)
@@ -47,7 +83,12 @@
     externalRevision: null,
     collapsed: new Set(),
     drag: null,
-    photoBusy: false
+    previewDrag: null,
+    previewDrop: null,
+    popover: null,
+    photoBusy: false,
+    editMode: true,
+    inline: null
   };
 
   var saveChain = Promise.resolve();
@@ -76,12 +117,16 @@
   var previewScroll;
   var pageScaler;
   var resumeRoot;
+  var measureRoot;
+  var inlineEditToggle;
   var a4Limit;
   var overflowHint;
   var toast;
   var externalBanner;
   var moreBtn;
   var moreMenu;
+  var previewAddMenu;
+  var editPopover;
   var pdfBtn;
   var wordBtn;
   var fitBtn;
@@ -102,12 +147,16 @@
     previewScroll = $('#previewScroll');
     pageScaler = $('#pageScaler');
     resumeRoot = $('#resumeRoot');
+    measureRoot = $('#measureRoot');
+    inlineEditToggle = $('#inlineEditToggle');
     a4Limit = $('#a4Limit');
     overflowHint = $('#overflowHint');
     toast = $('#toast');
     externalBanner = $('#externalBanner');
     moreBtn = $('#moreBtn');
     moreMenu = $('#moreMenu');
+    previewAddMenu = $('#previewAddMenu');
+    editPopover = $('#editPopover');
     pdfBtn = $('#pdfBtn');
     wordBtn = $('#wordBtn');
     fitBtn = $('#fitBtn');
@@ -199,10 +248,11 @@
     layout.photoShape = ['rounded', 'square', 'circle'].indexOf(layout.photoShape) >= 0 ? layout.photoShape : 'rounded';
     layout.photoWidth = clamp(layout.photoWidth, 18, 35, 25);
     layout.photoHeight = clamp(layout.photoHeight, 22, 42, 32);
-    layout.titleStyle = ['line', 'underline', 'plain'].indexOf(layout.titleStyle) >= 0 ? layout.titleStyle : 'line';
-    layout.tagStyle = ['soft', 'outline', 'plain'].indexOf(layout.tagStyle) >= 0 ? layout.tagStyle : 'soft';
+    layout.titleStyle = ['line', 'underline', 'plain', 'numbered'].indexOf(layout.titleStyle) >= 0 ? layout.titleStyle : 'line';
+    layout.tagStyle = ['soft', 'outline', 'plain', 'square'].indexOf(layout.tagStyle) >= 0 ? layout.tagStyle : 'soft';
     layout.showPhoto = layout.showPhoto !== false;
     layout.density = ['compact', 'standard', 'loose', 'custom'].indexOf(layout.density) >= 0 ? layout.density : 'compact';
+    layout.stylePreset = ['classic', 'swiss-ikb', 'swiss-red', 'swiss-mono'].indexOf(layout.stylePreset) >= 0 ? layout.stylePreset : 'classic';
     data.layout = layout;
     return data;
   }
@@ -229,6 +279,7 @@
       state.revision = Number(res.headers.get('X-Revision')) || 0;
       return res.json();
     }).then(function (data) {
+      abandonInlineEdit();
       state.data = normalizeData(data);
       state.dirty = false;
       state.saving = false;
@@ -480,8 +531,9 @@
       cancelAnimationFrame(state.previewRaf);
       state.previewRaf = 0;
     }
+    if (state.inline) finishInlineEdit(false);
     if (!state.data || !window.ResumeRenderer) return;
-    window.ResumeRenderer.render(resumeRoot, state.data, { editor: true });
+    window.ResumeRenderer.render(resumeRoot, state.data, { editor: state.editMode });
     updatePreviewScale();
   }
 
@@ -489,10 +541,17 @@
     if (state.previewRaf) return;
     state.previewRaf = requestAnimationFrame(function () {
       state.previewRaf = 0;
+      if (state.inline) finishInlineEdit(false);
       if (!state.data) return;
-      window.ResumeRenderer.render(resumeRoot, state.data, { editor: true });
+      window.ResumeRenderer.render(resumeRoot, state.data, { editor: state.editMode });
       updatePreviewScale();
     });
+  }
+
+  function measurePrintHeight() {
+    if (!state.data || !measureRoot) return PAGE_H;
+    window.ResumeRenderer.render(measureRoot, state.data, { editor: false });
+    return measureRoot.offsetHeight;
   }
 
   function updatePreviewScale() {
@@ -500,23 +559,24 @@
     var available = Math.max(120, previewScroll.clientWidth - PREVIEW_PADDING);
     var scale = Math.max(0.2, Math.min(1, available / PAGE_W));
     var pageHeight = resumeRoot.offsetHeight;
-    var height = Math.max(pageHeight, PAGE_H);
+    var printHeight = measurePrintHeight();
+    var height = Math.max(pageHeight, printHeight, PAGE_H);
 
     pageScaler.style.width = Math.round(PAGE_W * scale) + 'px';
     pageScaler.style.height = Math.round(height * scale) + 'px';
     resumeRoot.style.transform = 'scale(' + scale + ')';
 
-    var overflow = pageHeight > PAGE_H + 3;
+    var overflow = printHeight > PAGE_H + 3;
     state.pageOverflow = overflow;
     a4Limit.hidden = !overflow;
     a4Limit.style.top = Math.round(PAGE_H * scale) + 'px';
 
     if (overflow) {
-      var excess = ((pageHeight - PAGE_H) * 25.4 / 96).toFixed(1);
+      var excess = ((printHeight - PAGE_H) * 25.4 / 96).toFixed(1);
       overflowHint.textContent = '超出 A4 约 ' + excess + 'mm，请压缩或点「适应一页」';
       overflowHint.className = 'overflow-hint';
     } else {
-      overflowHint.textContent = '已在一页内';
+      overflowHint.textContent = state.editMode ? '已在一页内 · 编辑辅助不计页' : '已在一页内';
       overflowHint.className = 'overflow-hint ok';
     }
   }
@@ -731,7 +791,613 @@
     });
   }
 
-  function addSection(type, title) {
+  function formSectionCard(sectionId) {
+    return $$('.section-card', sectionsList).filter(function (el) {
+      return el.dataset.sectionId === sectionId;
+    })[0] || null;
+  }
+
+  function formItemCard(sectionId, itemId) {
+    var sectionCard = formSectionCard(sectionId);
+    if (!sectionCard) return null;
+    return $$('.item-card', sectionCard).filter(function (el) {
+      return el.dataset.itemId === itemId;
+    })[0] || null;
+  }
+
+  function readEditableText(el) {
+    var text = String(el.innerText != null ? el.innerText : el.textContent || '');
+    return text.replace(/\s+/g, ' ').trim();
+  }
+
+  function inlineTarget(el) {
+    var kind = el.dataset.editKind;
+    if (kind === 'profile') {
+      return { obj: state.data.profile, key: el.dataset.field };
+    }
+    if (kind === 'profile-link') {
+      var link = state.data.profile.links[Number(el.dataset.linkIndex)];
+      return link ? { obj: link, key: el.dataset.field || 'label' } : null;
+    }
+    var section = findSection(el.dataset.sectionId);
+    if (!section) return null;
+    if (kind === 'section') return { obj: section, key: 'title' };
+    var item = findItem(section, el.dataset.itemId);
+    if (!item) return null;
+    if (kind === 'item') return { obj: item, key: el.dataset.field };
+    var index = Number(el.dataset.index);
+    if (kind === 'bullet') return { obj: item.bullets, key: index };
+    if (kind === 'tag') return { obj: item.tags, key: index };
+    return null;
+  }
+
+  function applyInlineValue(el, text) {
+    var target = inlineTarget(el);
+    if (!target) return;
+    target.obj[target.key] = text;
+  }
+
+  function syncFormField(el, text) {
+    var kind = el.dataset.editKind;
+    if (kind === 'profile') {
+      var profileInput = $('[data-profile="' + el.dataset.field + '"]', contentPanel);
+      if (profileInput) profileInput.value = text;
+      return;
+    }
+    if (kind === 'profile-link') {
+      var linkRow = $$('.link-row', linksList)[Number(el.dataset.linkIndex)];
+      if (linkRow) {
+        var labelInput = linkRow.querySelector('[data-link-field="label"]');
+        if (labelInput) labelInput.value = text;
+      }
+      return;
+    }
+    var sectionCard = formSectionCard(el.dataset.sectionId);
+    if (!sectionCard) return;
+    if (kind === 'section') {
+      var sectionNameInput = sectionCard.querySelector('.section-name');
+      if (sectionNameInput) sectionNameInput.value = text;
+      return;
+    }
+    var itemCard = formItemCard(el.dataset.sectionId, el.dataset.itemId);
+    if (!itemCard) return;
+    if (kind === 'item') {
+      var itemInput = itemCard.querySelector('[data-item-field="' + el.dataset.field + '"]');
+      if (itemInput) itemInput.value = text;
+      if (el.dataset.field === 'title') {
+        var summaryTitle = itemCard.querySelector('.item-summary-title');
+        if (summaryTitle) summaryTitle.textContent = text || '未填写';
+      }
+      return;
+    }
+    var section = findSection(el.dataset.sectionId);
+    var item = findItem(section, el.dataset.itemId);
+    if (!item) return;
+    if (kind === 'bullet') {
+      var bulletsInput = itemCard.querySelector('[data-item-field="bullets"]');
+      if (bulletsInput) bulletsInput.value = item.bullets.join('\n');
+    } else if (kind === 'tag') {
+      var tagsInput = itemCard.querySelector('[data-item-field="tags"]');
+      if (tagsInput) tagsInput.value = item.tags.join('、');
+    }
+  }
+
+  function startInlineEdit(el) {
+    if (!state.editMode || !state.data || !el) return;
+    if (state.inline && state.inline.el === el) {
+      el.focus();
+      return;
+    }
+    if (state.inline) finishInlineEdit(false);
+
+    state.inline = {
+      el: el,
+      originalText: readEditableText(el),
+      kind: el.dataset.editKind,
+      sectionId: el.dataset.sectionId,
+      itemId: el.dataset.itemId,
+      field: el.dataset.field,
+      index: el.dataset.index !== undefined ? Number(el.dataset.index) : null
+    };
+
+    el.setAttribute('contenteditable', 'plaintext-only');
+    el.classList.add('is-editing');
+    el.focus();
+
+    try {
+      var range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      var selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } catch (err) {
+      // selection is best-effort
+    }
+  }
+
+  function finishInlineEdit(cancelled) {
+    var inline = state.inline;
+    if (!inline) return;
+    var el = inline.el;
+    var text = readEditableText(el);
+    state.inline = null;
+
+    if (cancelled) {
+      text = inline.originalText;
+      el.textContent = text;
+    }
+
+    applyInlineValue(el, text);
+    syncFormField(el, text);
+    el.removeAttribute('contenteditable');
+    el.classList.remove('is-editing');
+    if (!text) el.innerHTML = '';
+    if (document.activeElement === el) el.blur();
+    if (text !== inline.originalText) markDirty();
+  }
+
+  function abandonInlineEdit() {
+    if (!state.inline) return;
+    var el = state.inline.el;
+    state.inline = null;
+    el.removeAttribute('contenteditable');
+    el.classList.remove('is-editing');
+  }
+
+  function onPreviewInput(event) {
+    if (!state.inline || event.target !== state.inline.el) return;
+    var text = readEditableText(event.target);
+    applyInlineValue(event.target, text);
+    syncFormField(event.target, text);
+    updatePreviewScale();
+    markDirty();
+  }
+
+  function onPreviewKeydown(event) {
+    if (!state.inline) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      finishInlineEdit(true);
+      return;
+    }
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    event.stopPropagation();
+    var inline = state.inline;
+    finishInlineEdit(false);
+    if (inline.kind === 'bullet') {
+      addBulletAt(inline.sectionId, inline.itemId, (inline.index || 0) + 1);
+    }
+  }
+
+  function onPreviewFocusOut(event) {
+    if (state.inline && event.target === state.inline.el) finishInlineEdit(false);
+  }
+
+  function onPreviewPaste(event) {
+    if (!state.inline || event.target !== state.inline.el) return;
+    event.preventDefault();
+    var text = (event.clipboardData || window.clipboardData).getData('text/plain') || '';
+    document.execCommand('insertText', false, text.replace(/\s+/g, ' '));
+  }
+
+  function onPreviewClick(event) {
+    var actionButton = event.target.closest('[data-preview-action]');
+    if (actionButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      handlePreviewAction(actionButton);
+      return;
+    }
+    if (!state.editMode) return;
+
+    if (event.target.closest('[data-photo-edit]')) {
+      event.preventDefault();
+      event.stopPropagation();
+      photoInput.click();
+      return;
+    }
+
+    var editable = event.target.closest('[data-edit-kind]');
+    if (!editable) return;
+    if (editable.tagName === 'A') event.preventDefault();
+    event.stopPropagation();
+    startInlineEdit(editable);
+  }
+
+  function focusPreviewEditable(kind, sectionId, itemId, field, index) {
+    requestAnimationFrame(function () {
+      var nodes = $$('[data-edit-kind="' + kind + '"]', resumeRoot).filter(function (node) {
+        if (node.dataset.sectionId !== sectionId) return false;
+        if (itemId && node.dataset.itemId !== itemId) return false;
+        if (field && node.dataset.field !== field) return false;
+        if (index !== undefined && index !== null && Number(node.dataset.index) !== index) return false;
+        return true;
+      });
+      if (!nodes.length) return;
+      nodes[0].scrollIntoView({ block: 'center' });
+      startInlineEdit(nodes[0]);
+    });
+  }
+
+  function addBulletAt(sectionId, itemId, at) {
+    var section = findSection(sectionId);
+    var item = findItem(section, itemId);
+    if (!item) return;
+    var index = Math.max(0, Math.min(item.bullets.length, at));
+    item.bullets.splice(index, 0, '');
+    renderSections();
+    renderPreviewNow();
+    markDirty();
+    focusPreviewEditable('bullet', sectionId, itemId, null, index);
+  }
+
+  function addTagAt(sectionId, itemId, at) {
+    var section = findSection(sectionId);
+    var item = findItem(section, itemId);
+    if (!item) return;
+    var index = Math.max(0, Math.min(item.tags.length, at));
+    item.tags.splice(index, 0, '');
+    renderSections();
+    renderPreviewNow();
+    markDirty();
+    focusPreviewEditable('tag', sectionId, itemId, null, index);
+  }
+
+  function positionFloating(panel, anchor) {
+    panel.hidden = false;
+    var rect = anchor.getBoundingClientRect();
+    var width = panel.offsetWidth;
+    var height = panel.offsetHeight;
+    var left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.left));
+    var top = rect.bottom + 8;
+    if (top + height > window.innerHeight - 12) {
+      top = Math.max(12, rect.top - height - 8);
+    }
+    panel.style.left = left + 'px';
+    panel.style.top = top + 'px';
+  }
+
+  function closeEditPopover() {
+    editPopover.hidden = true;
+    state.popover = null;
+  }
+
+  function closeAddMenu() {
+    previewAddMenu.hidden = true;
+  }
+
+  function closePreviewMenus() {
+    closeEditPopover();
+    closeAddMenu();
+  }
+
+  function openAddMenu(anchor) {
+    var options = [
+      ['timeline', '工作经历'],
+      ['timeline', '项目经历'],
+      ['timeline', '教育背景'],
+      ['tags', '专业技能'],
+      ['list', '荣誉奖项'],
+      ['list', '自定义模块']
+    ];
+    previewAddMenu.innerHTML = options.map(function (pair) {
+      return '<button type="button" data-add-section="' + pair[0] + '" data-title="' + pair[1] + '">' + pair[1] + '</button>';
+    }).join('');
+    positionFloating(previewAddMenu, anchor);
+  }
+
+  function openLinkPopover(options) {
+    var mode = options.mode;
+    var link = null;
+    var item = null;
+    if (mode === 'profile') link = state.data.profile.links[options.linkIndex];
+    if (mode === 'item') {
+      var section = findSection(options.sectionId);
+      item = findItem(section, options.itemId);
+    }
+    var profileMode = mode === 'profile' || mode === 'profile-add';
+    var label = link ? link.label : '';
+    var url = link ? link.url : (item ? item.link : '');
+
+    state.popover = {
+      mode: mode,
+      linkIndex: options.linkIndex,
+      sectionId: options.sectionId,
+      itemId: options.itemId
+    };
+
+    editPopover.innerHTML =
+      '<h4>' + (mode === 'profile-add' ? '添加链接' : mode === 'item' ? '编辑条目链接' : '编辑链接') + '</h4>' +
+      (profileMode
+        ? '<label class="field"><span>标签</span><input id="popoverLabel" value="' + esc(label) + '" placeholder="如 GitHub"></label>'
+        : '') +
+      '<label class="field"><span>链接地址</span><input id="popoverUrl" value="' + esc(url) + '" placeholder="https://..."></label>' +
+      '<div class="edit-popover-actions">' +
+      '<button type="button" class="btn small ghost" data-popover-action="cancel">取消</button>' +
+      '<button type="button" class="btn small primary" data-popover-action="save">保存</button>' +
+      '</div>';
+
+    positionFloating(editPopover, options.anchor);
+    var firstInput = editPopover.querySelector('input');
+    if (firstInput) {
+      firstInput.focus();
+      firstInput.select();
+    }
+  }
+
+  function saveLinkPopover() {
+    if (!state.popover) return;
+    var popover = state.popover;
+    var labelInput = $('#popoverLabel');
+    var urlInput = $('#popoverUrl');
+    var label = labelInput ? labelInput.value.trim() : '';
+    var url = urlInput ? urlInput.value.trim() : '';
+
+    if (popover.mode === 'profile') {
+      var link = state.data.profile.links[popover.linkIndex];
+      if (link) {
+        link.label = label;
+        link.url = url;
+      }
+    } else if (popover.mode === 'profile-add') {
+      if (label || url) state.data.profile.links.push({ label: label, url: url });
+    } else if (popover.mode === 'item') {
+      var section = findSection(popover.sectionId);
+      var item = findItem(section, popover.itemId);
+      if (item) item.link = url;
+    }
+
+    closeEditPopover();
+    renderSections();
+    renderPreviewNow();
+    markDirty();
+  }
+
+  function handlePreviewAction(button) {
+    var action = button.dataset.previewAction;
+    if (!action) return;
+    if (state.inline) finishInlineEdit(false);
+
+    var sectionId = button.dataset.sectionId;
+    var itemId = button.dataset.itemId;
+    var index = button.dataset.index !== undefined ? Number(button.dataset.index) : null;
+    var section = findSection(sectionId);
+    var item = findItem(section, itemId);
+
+    if (action === 'add-section') {
+      openAddMenu(button);
+      return;
+    }
+    if (action === 'edit-profile-link') {
+      openLinkPopover({ mode: 'profile', linkIndex: Number(button.dataset.linkIndex), anchor: button });
+      return;
+    }
+    if (action === 'add-profile-link') {
+      openLinkPopover({ mode: 'profile-add', anchor: button });
+      return;
+    }
+    if (action === 'edit-item-link') {
+      openLinkPopover({ mode: 'item', sectionId: sectionId, itemId: itemId, anchor: button });
+      return;
+    }
+    if (action === 'remove-photo') {
+      state.data.profile.photo = '';
+      renderPhoto();
+      renderPreviewNow();
+      markDirty();
+      return;
+    }
+    if (!section) return;
+
+    if (action === 'add-item') {
+      var newItem = {
+        id: uid('item'),
+        title: '',
+        subtitle: '',
+        start: '',
+        end: '',
+        meta: '',
+        link: '',
+        description: '',
+        bullets: [],
+        tags: []
+      };
+      section.items.push(newItem);
+      renderSections();
+      renderPreviewNow();
+      markDirty();
+      focusPreviewEditable('item', section.id, newItem.id, 'title');
+      return;
+    }
+    if (action === 'delete-item') {
+      if (!confirm('删除这个条目？')) return;
+      section.items = section.items.filter(function (entry) { return entry.id !== itemId; });
+      renderSections();
+      renderPreviewNow();
+      markDirty();
+      return;
+    }
+    if (action === 'delete-section') {
+      if (!confirm('删除模块「' + (section.title || '未命名模块') + '」及其中所有条目？')) return;
+      state.data.sections = state.data.sections.filter(function (entry) { return entry.id !== section.id; });
+      renderSections();
+      renderPreviewNow();
+      markDirty();
+      return;
+    }
+    if (action === 'toggle-visible') {
+      section.visible = false;
+      renderSections();
+      renderPreviewNow();
+      markDirty();
+      showToast('模块已隐藏，可在左侧重新显示');
+      return;
+    }
+    if (action === 'toggle-column') {
+      if (Number(state.data.layout.columns) !== 2) {
+        showToast('先在版式里切换为双栏');
+        return;
+      }
+      section.column = section.column === 'side' ? 'main' : 'side';
+      renderSections();
+      renderPreviewNow();
+      markDirty();
+      return;
+    }
+    if (!item) return;
+    if (action === 'add-bullet') {
+      addBulletAt(section.id, item.id, item.bullets.length);
+      return;
+    }
+    if (action === 'add-tag') {
+      addTagAt(section.id, item.id, item.tags.length);
+      return;
+    }
+    if (action === 'remove-tag') {
+      if (index === null) return;
+      item.tags.splice(index, 1);
+      renderSections();
+      renderPreviewNow();
+      markDirty();
+    }
+  }
+
+  function clearPreviewDrop() {
+    $$('.drop-before, .drop-after, .drag-over', resumeRoot).forEach(function (el) {
+      el.classList.remove('drop-before', 'drop-after', 'drag-over');
+    });
+  }
+
+  function autoScrollPreview(event) {
+    var rect = previewScroll.getBoundingClientRect();
+    if (event.clientY < rect.top + 60) previewScroll.scrollTop -= 16;
+    else if (event.clientY > rect.bottom - 60) previewScroll.scrollTop += 16;
+  }
+
+  function moveSectionRelative(fromId, toId, after, targetColumn) {
+    if (!fromId || !toId || fromId === toId) return;
+    var sections = state.data.sections;
+    var from = sections.findIndex(function (section) { return section.id === fromId; });
+    var target = sections.findIndex(function (section) { return section.id === toId; });
+    if (from < 0 || target < 0) return;
+    var moved = sections.splice(from, 1)[0];
+    moved.column = targetColumn || 'main';
+    var insertAt = sections.findIndex(function (section) { return section.id === toId; });
+    if (insertAt < 0) insertAt = sections.length;
+    else if (after) insertAt += 1;
+    sections.splice(insertAt, 0, moved);
+  }
+
+  function moveSectionToColumn(sectionId, column) {
+    var sections = state.data.sections;
+    var from = sections.findIndex(function (section) { return section.id === sectionId; });
+    if (from < 0) return;
+    var moved = sections.splice(from, 1)[0];
+    moved.column = column;
+    var last = -1;
+    sections.forEach(function (section, index) {
+      if ((section.column === 'side') === (column === 'side')) last = index;
+    });
+    if (last >= 0) sections.splice(last + 1, 0, moved);
+    else sections.push(moved);
+  }
+
+  function moveItemRelative(sectionId, fromId, toId, after) {
+    var section = findSection(sectionId);
+    if (!section || !fromId || !toId || fromId === toId) return;
+    var items = section.items;
+    var from = items.findIndex(function (item) { return item.id === fromId; });
+    var target = items.findIndex(function (item) { return item.id === toId; });
+    if (from < 0 || target < 0) return;
+    var moved = items.splice(from, 1)[0];
+    var insertAt = items.findIndex(function (item) { return item.id === toId; });
+    if (insertAt < 0) insertAt = items.length;
+    else if (after) insertAt += 1;
+    items.splice(insertAt, 0, moved);
+  }
+
+  function onPreviewDragStart(event) {
+    var sectionHandle = event.target.closest('[data-drag-preview-section]');
+    var itemHandle = event.target.closest('[data-drag-preview-item]');
+    if (sectionHandle) {
+      state.previewDrag = { type: 'section', id: sectionHandle.dataset.dragPreviewSection };
+    } else if (itemHandle) {
+      state.previewDrag = {
+        type: 'item',
+        sectionId: itemHandle.dataset.sectionId,
+        id: itemHandle.dataset.dragPreviewItem
+      };
+    } else {
+      return;
+    }
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', state.previewDrag.id);
+  }
+
+  function onPreviewDragOver(event) {
+    if (!state.previewDrag) return;
+    var zone = event.target.closest('.column-drop-zone');
+    if (zone && state.previewDrag.type === 'section') {
+      event.preventDefault();
+      clearPreviewDrop();
+      zone.classList.add('drag-over');
+      state.previewDrop = { zone: zone, column: zone.dataset.dropColumn };
+      autoScrollPreview(event);
+      return;
+    }
+
+    var target = state.previewDrag.type === 'section'
+      ? event.target.closest('.section')
+      : event.target.closest('.item, .skill-item');
+    if (!target) return;
+
+    if (state.previewDrag.type === 'section' && target.dataset.section === state.previewDrag.id) return;
+    if (state.previewDrag.type === 'item') {
+      var targetSection = target.closest('.section');
+      if (!targetSection || targetSection.dataset.section !== state.previewDrag.sectionId) return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    clearPreviewDrop();
+    var rect = target.getBoundingClientRect();
+    var after = event.clientY > rect.top + rect.height / 2;
+    target.classList.add(after ? 'drop-after' : 'drop-before');
+    state.previewDrop = { target: target, after: after };
+    autoScrollPreview(event);
+  }
+
+  function onPreviewDrop(event) {
+    if (!state.previewDrag || !state.previewDrop) return;
+    event.preventDefault();
+    var drag = state.previewDrag;
+    var drop = state.previewDrop;
+
+    if (drop.zone) {
+      if (drag.type === 'section') moveSectionToColumn(drag.id, drop.column);
+    } else if (drag.type === 'section') {
+      var targetSection = drop.target.closest('.section');
+      if (targetSection) {
+        var column = targetSection.closest('.col-side') ? 'side' : 'main';
+        moveSectionRelative(drag.id, targetSection.dataset.section, drop.after, column);
+      }
+    } else if (drag.type === 'item') {
+      var itemTarget = drop.target.closest('.item, .skill-item');
+      if (itemTarget) moveItemRelative(drag.sectionId, drag.id, itemTarget.dataset.itemId, drop.after);
+    }
+
+    state.previewDrag = null;
+    state.previewDrop = null;
+    clearPreviewDrop();
+    renderSections();
+    renderPreviewNow();
+    markDirty();
+  }
+
+  function addSection(type, title, fromPreview) {
     var section = {
       id: uid('sec'),
       title: title || '自定义模块',
@@ -755,6 +1421,10 @@
     renderSections();
     renderPreviewNow();
     markDirty();
+    if (fromPreview && state.editMode) {
+      focusPreviewEditable('section', section.id, null, 'title');
+      return;
+    }
     var card = $$('.section-card', sectionsList).filter(function (el) {
       return el.dataset.sectionId === section.id;
     })[0];
@@ -787,6 +1457,27 @@
     layout.lineHeight = preset.lineHeight;
     layout.sectionGap = preset.sectionGap;
     layout.pageMargin = preset.pageMargin;
+  }
+
+  var STYLE_NAMES = {
+    classic: '经典',
+    'swiss-ikb': '瑞士 · IKB 蓝',
+    'swiss-red': '瑞士 · 红黑',
+    'swiss-mono': '瑞士 · 黑白'
+  };
+
+  function applyStylePreset(key) {
+    var preset = STYLE_PRESETS[key];
+    if (!preset || !state.data) return;
+    var layout = state.data.layout;
+    layout.stylePreset = key;
+    ['accent', 'fontFamily', 'titleStyle', 'tagStyle', 'photoShape', 'headerAlign'].forEach(function (name) {
+      layout[name] = preset[name];
+    });
+    syncLayoutControls();
+    renderPreviewNow();
+    markDirty();
+    showToast('已切换风格：' + (STYLE_NAMES[key] || key), 'success');
   }
 
   function onLayoutInput(event) {
@@ -825,6 +1516,11 @@
   }
 
   function onLayoutChange(event) {
+    if (event.target.name === 'stylePreset') {
+      applyStylePreset(event.target.value);
+      return;
+    }
+
     var id = event.target.id;
     var layout = state.data.layout;
 
@@ -878,6 +1574,12 @@
   function syncLayoutControls() {
     if (!state.data) return;
     var layout = state.data.layout;
+    $$('input[name="stylePreset"]', layoutPanel).forEach(function (radio) {
+      var active = radio.value === layout.stylePreset;
+      radio.checked = active;
+      var card = radio.closest('.style-card');
+      if (card) card.classList.toggle('active', active);
+    });
     $('#layoutColumns').value = String(layout.columns);
     $('#layoutSideWidth').value = layout.sideWidth;
     $('#layoutFontFamily').value = layout.fontFamily;
@@ -942,8 +1644,8 @@
     var fitted = null;
     for (var i = 0; i < attempts.length; i += 1) {
       state.data.layout = Object.assign({}, original, attempts[i], { density: 'custom' });
-      window.ResumeRenderer.render(resumeRoot, state.data, { editor: true });
-      if (resumeRoot.offsetHeight <= PAGE_H + 2) {
+      window.ResumeRenderer.render(measureRoot, state.data, { editor: false });
+      if (measureRoot.offsetHeight <= PAGE_H + 2) {
         fitted = JSON.parse(JSON.stringify(state.data.layout));
         break;
       }
@@ -1089,6 +1791,7 @@
         throw new Error('文件里缺少 sections 模块数据');
       }
       if (!confirm('导入会覆盖当前内容，确定继续？')) return;
+      abandonInlineEdit();
       state.data = normalizeData(parsed);
       state.changeVersion += 1;
       state.dirty = true;
@@ -1200,9 +1903,37 @@
     wordBtn.addEventListener('click', function () { exportFile('docx'); });
     fitBtn.addEventListener('click', fitToPage);
 
+    inlineEditToggle.addEventListener('change', function () {
+      state.editMode = inlineEditToggle.checked;
+      renderPreviewNow();
+    });
+
     photoPicker.addEventListener('click', function () { photoInput.click(); });
-    previewScroll.addEventListener('click', function (event) {
-      if (event.target.closest('[data-photo-placeholder]')) photoInput.click();
+    previewScroll.addEventListener('click', onPreviewClick);
+    previewScroll.addEventListener('input', onPreviewInput);
+    previewScroll.addEventListener('keydown', onPreviewKeydown);
+    previewScroll.addEventListener('focusout', onPreviewFocusOut, true);
+    previewScroll.addEventListener('paste', onPreviewPaste, true);
+    previewScroll.addEventListener('scroll', closePreviewMenus);
+    previewScroll.addEventListener('dragstart', onPreviewDragStart);
+    previewScroll.addEventListener('dragover', onPreviewDragOver);
+    previewScroll.addEventListener('drop', onPreviewDrop);
+    previewScroll.addEventListener('dragend', function () {
+      state.previewDrag = null;
+      state.previewDrop = null;
+      clearPreviewDrop();
+    });
+    previewAddMenu.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-add-section]');
+      if (!button) return;
+      closeAddMenu();
+      addSection(button.dataset.addSection, button.dataset.title, true);
+    });
+    editPopover.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-popover-action]');
+      if (!button) return;
+      if (button.dataset.popoverAction === 'save') saveLinkPopover();
+      else closeEditPopover();
     });
     photoInput.addEventListener('change', function () {
       uploadPhoto(photoInput.files && photoInput.files[0]);
@@ -1231,12 +1962,21 @@
     });
 
     document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        closePreviewMenus();
+        if (state.inline) finishInlineEdit(true);
+      }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
         event.preventDefault();
         saveNow().then(function (ok) {
           if (ok) showToast('已保存', 'success');
         });
       }
+    });
+
+    document.addEventListener('click', function (event) {
+      if (!editPopover.hidden && !editPopover.contains(event.target)) closeEditPopover();
+      if (!previewAddMenu.hidden && !previewAddMenu.contains(event.target)) closeAddMenu();
     });
 
     window.addEventListener('beforeunload', function (event) {

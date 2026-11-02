@@ -102,6 +102,61 @@
       <div class="panel-scroll" id="layoutPanel" hidden>
         <div class="layout-note">版式参数随数据一起保存，导出 PDF 与右侧预览一致。</div>
 
+        <section class="control-group style-group">
+          <h3>风格</h3>
+          <p class="control-note">切换会套用推荐配色、字体与标题样式，分栏和密度保持不变。</p>
+          <div class="style-grid">
+            <label class="style-card active" data-style="classic">
+              <input type="radio" name="stylePreset" value="classic" checked>
+              <span class="style-thumb thumb-classic" aria-hidden="true">
+                <i class="thumb-name"></i>
+                <i class="thumb-accent"></i>
+                <i class="thumb-row"></i>
+                <i class="thumb-row short"></i>
+                <i class="thumb-chip"></i>
+                <i class="thumb-chip"></i>
+              </span>
+              <span class="style-meta"><strong>经典</strong><small>当前默认 · 蓝色</small></span>
+            </label>
+            <label class="style-card" data-style="swiss-ikb">
+              <input type="radio" name="stylePreset" value="swiss-ikb">
+              <span class="style-thumb thumb-swiss thumb-ikb" aria-hidden="true">
+                <i class="thumb-name"></i>
+                <i class="thumb-rule"></i>
+                <i class="thumb-index">01</i>
+                <i class="thumb-row"></i>
+                <i class="thumb-row short"></i>
+                <i class="thumb-chip"></i>
+              </span>
+              <span class="style-meta"><strong>瑞士</strong><small>IKB 蓝 · #002FA7</small></span>
+            </label>
+            <label class="style-card" data-style="swiss-red">
+              <input type="radio" name="stylePreset" value="swiss-red">
+              <span class="style-thumb thumb-swiss thumb-red" aria-hidden="true">
+                <i class="thumb-name"></i>
+                <i class="thumb-rule"></i>
+                <i class="thumb-index">01</i>
+                <i class="thumb-row"></i>
+                <i class="thumb-row short"></i>
+                <i class="thumb-chip"></i>
+              </span>
+              <span class="style-meta"><strong>瑞士</strong><small>红黑 · #E30613</small></span>
+            </label>
+            <label class="style-card" data-style="swiss-mono">
+              <input type="radio" name="stylePreset" value="swiss-mono">
+              <span class="style-thumb thumb-swiss thumb-mono" aria-hidden="true">
+                <i class="thumb-name"></i>
+                <i class="thumb-rule"></i>
+                <i class="thumb-index">01</i>
+                <i class="thumb-row"></i>
+                <i class="thumb-row short"></i>
+                <i class="thumb-chip"></i>
+              </span>
+              <span class="style-meta"><strong>瑞士</strong><small>纯黑白 · 无彩色</small></span>
+            </label>
+          </div>
+        </section>
+
         <section class="control-group">
           <h3>页面结构</h3>
           <label class="control row"><span>分栏</span>
@@ -161,6 +216,7 @@
               <option value="line">色块</option>
               <option value="underline">下划线</option>
               <option value="plain">纯文字</option>
+              <option value="numbered">编号</option>
             </select>
           </label>
           <label class="control row"><span>技能标签</span>
@@ -168,6 +224,7 @@
               <option value="soft">淡色底</option>
               <option value="outline">描边</option>
               <option value="plain">纯文字</option>
+              <option value="square">方正</option>
             </select>
           </label>
         </section>
@@ -203,7 +260,13 @@
     <section class="preview">
       <div class="preview-bar">
         <div class="preview-title">实时预览 <span class="preview-badge">A4</span></div>
-        <div id="overflowHint" class="overflow-hint"></div>
+        <div class="preview-actions">
+          <label class="preview-toggle" title="开启后可直接点击预览中的文字编辑；编辑辅助标记不参与分页">
+            <input type="checkbox" id="inlineEditToggle" checked>
+            <span>直接编辑</span>
+          </label>
+          <div id="overflowHint" class="overflow-hint"></div>
+        </div>
       </div>
       <div class="preview-scroll" id="previewScroll">
         <div class="page-scaler" id="pageScaler">
@@ -214,6 +277,9 @@
     </section>
   </main>
 
+  <div id="measureRoot" class="resume-page" aria-hidden="true"></div>
+  <div id="previewAddMenu" class="mini-menu" hidden></div>
+  <div id="editPopover" class="edit-popover" hidden></div>
   <div class="toast" id="toast" hidden></div>
   <input type="file" id="photoInput" accept="image/png,image/jpeg,image/webp" hidden>
   <input type="file" id="jsonInput" accept="application/json,.json" hidden>
