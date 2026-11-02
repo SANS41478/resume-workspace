@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>简历</title>
+  <link rel="stylesheet" href="assets/resume.css">
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #e9edf2;
+    }
+
+    .page-wrap {
+      min-height: 100vh;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .resume-page {
+      box-shadow: 0 20px 55px rgba(15, 23, 42, 0.16);
+    }
+
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+
+      .page-wrap {
+        display: block;
+        min-height: 0;
+        padding: 0;
+      }
+
+      .resume-page {
+        box-shadow: none;
+        min-height: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <div id="page" class="resume-page"></div>
+  </div>
+  <script src="assets/renderer.js"></script>
+  <!--RESUME_DATA-->
+  <script>
+    (function () {
+      'use strict';
+
+      function render(data) {
+        var page = document.getElementById('page');
+        window.ResumeRenderer.render(page, data, { editor: false });
+        document.title = (data.profile && data.profile.name ? data.profile.name + ' - ' : '') + '简历';
+        if (new URLSearchParams(location.search).get('print') === '1') {
+          setTimeout(function () {
+            window.print();
+          }, 350);
+        }
+      }
+
+      function boot() {
+        if (window.__RESUME_DATA__) {
+          render(window.__RESUME_DATA__);
+          return;
+        }
+        fetch('/api/resume', { cache: 'no-store' })
+          .then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+          })
+          .then(render)
+          .catch(function (err) {
+            document.getElementById('page').innerHTML =
+              '<p style="padding:20px;color:#b91c1c;font-family:sans-serif">加载失败：' + err.message + '</p>';
+          });
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>

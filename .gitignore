@@ -1,0 +1,17 @@
+# Local resume data (keeps personal information out of git)
+resume.json
+assets/photo-*
+
+# Generated output
+输出/
+_print-*.html
+*.tmp-*
+
+# Python
+__pycache__/
+*.pyc
+
+# Dependencies / OS
+node_modules/
+Thumbs.db
+.DS_Store

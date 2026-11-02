@@ -1,0 +1,219 @@
+{
+  "profile": {
+    "name": "张明",
+    "title": "前端开发工程师",
+    "phone": "138-0000-0000",
+    "email": "zhangming@example.com",
+    "location": "上海",
+    "photo": "",
+    "summary": "3 年前端开发经验，专注 React 与 TypeScript，有中后台 SaaS 产品从 0 到 1 的经验。关注性能优化与工程化，能独立负责复杂模块并推动跨团队协作。",
+    "links": [
+      {
+        "label": "GitHub",
+        "url": "https://github.com/example"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "experience",
+      "title": "工作经历",
+      "type": "timeline",
+      "visible": true,
+      "column": "main",
+      "items": [
+        {
+          "id": "exp-1",
+          "title": "某科技有限公司",
+          "subtitle": "前端开发工程师",
+          "start": "2023.06",
+          "end": "至今",
+          "meta": "上海",
+          "link": "",
+          "description": "",
+          "bullets": [
+            "负责核心 SaaS 产品前端架构与开发，服务 2 万+ 企业用户，主导权限、审批、报表等 6 个模块。",
+            "主导性能优化，首屏加载从 3.2s 降至 1.1s，关键路径转化率提升 18%。",
+            "搭建组件库与工程规范，沉淀 40+ 通用组件，需求交付周期缩短约 30%。"
+          ],
+          "tags": [
+            "React",
+            "TypeScript",
+            "Vite"
+          ]
+        },
+        {
+          "id": "exp-2",
+          "title": "某互联网公司",
+          "subtitle": "前端开发工程师",
+          "start": "2022.07",
+          "end": "2023.05",
+          "meta": "杭州",
+          "link": "",
+          "description": "",
+          "bullets": [
+            "参与电商活动页与营销工具开发，支撑大促日均 50 万 PV，页面可用性保持 99.9%。",
+            "推动构建流程升级与按需加载改造，构建耗时降低 45%，首屏资源体积减少 32%。"
+          ],
+          "tags": [
+            "Vue 3",
+            "Webpack",
+            "Node.js"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "projects",
+      "title": "项目经历",
+      "type": "timeline",
+      "visible": true,
+      "column": "main",
+      "items": [
+        {
+          "id": "proj-1",
+          "title": "企业数据看板平台",
+          "subtitle": "前端负责人",
+          "start": "2024.03",
+          "end": "2024.09",
+          "meta": "4 人团队",
+          "link": "https://github.com/example",
+          "description": "面向企业管理者的数据分析平台，支持多数据源接入、自定义图表与报表订阅。",
+          "bullets": [
+            "设计基于 React + ECharts 的可配置图表方案，支持 12 种图表类型与拖拽布局。",
+            "实现万级数据表格虚拟滚动与分页缓存，数据渲染帧率稳定在 60fps。"
+          ],
+          "tags": [
+            "React",
+            "ECharts",
+            "Zustand"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "education",
+      "title": "教育背景",
+      "type": "timeline",
+      "visible": true,
+      "column": "main",
+      "items": [
+        {
+          "id": "edu-1",
+          "title": "某大学",
+          "subtitle": "计算机科学与技术 · 本科",
+          "start": "2018.09",
+          "end": "2022.06",
+          "meta": "",
+          "link": "",
+          "description": "",
+          "bullets": [
+            "GPA 3.8/4.0，校级优秀毕业生；获校级一等奖学金 2 次。"
+          ],
+          "tags": []
+        }
+      ]
+    },
+    {
+      "id": "skills",
+      "title": "专业技能",
+      "type": "tags",
+      "visible": true,
+      "column": "side",
+      "items": [
+        {
+          "id": "skill-1",
+          "title": "前端",
+          "subtitle": "",
+          "start": "",
+          "end": "",
+          "meta": "",
+          "link": "",
+          "description": "",
+          "bullets": [],
+          "tags": [
+            "React",
+            "TypeScript",
+            "Vue 3",
+            "Vite",
+            "Next.js"
+          ]
+        },
+        {
+          "id": "skill-2",
+          "title": "工程化",
+          "subtitle": "",
+          "start": "",
+          "end": "",
+          "meta": "",
+          "link": "",
+          "description": "",
+          "bullets": [],
+          "tags": [
+            "Webpack",
+            "Rollup",
+            "Git",
+            "CI/CD",
+            "Jest"
+          ]
+        },
+        {
+          "id": "skill-3",
+          "title": "其他",
+          "subtitle": "",
+          "start": "",
+          "end": "",
+          "meta": "",
+          "link": "",
+          "description": "",
+          "bullets": [],
+          "tags": [
+            "Node.js",
+            "Figma",
+            "性能优化"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "awards",
+      "title": "荣誉奖项",
+      "type": "list",
+      "visible": true,
+      "column": "side",
+      "items": [
+        {
+          "id": "award-1",
+          "title": "校级一等奖学金",
+          "subtitle": "",
+          "start": "2021",
+          "end": "",
+          "meta": "前 5%",
+          "link": "",
+          "description": "",
+          "bullets": [],
+          "tags": []
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "columns": 1,
+    "sideWidth": 33,
+    "density": "custom",
+    "fontFamily": "sans",
+    "fontSize": 9.75,
+    "lineHeight": 1.45,
+    "sectionGap": 11,
+    "pageMargin": 12,
+    "accent": "#1d4ed8",
+    "headerAlign": "left",
+    "photoPosition": "right",
+    "photoShape": "rounded",
+    "photoWidth": 25,
+    "photoHeight": 32,
+    "titleStyle": "line",
+    "tagStyle": "soft",
+    "showPhoto": true
+  }
+}

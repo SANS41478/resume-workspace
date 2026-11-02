@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>简历工作台</title>
+  <link rel="stylesheet" href="assets/editor.css">
+  <link rel="stylesheet" href="assets/resume.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">CV</div>
+      <div class="brand-text">
+        <div class="brand-title">简历工作台</div>
+        <div class="brand-sub">本地编辑 · 自动保存</div>
+      </div>
+    </div>
+    <div class="save-state" id="saveState"><span class="dot"></span><span id="saveText">加载中…</span></div>
+    <div class="top-actions">
+      <button class="btn ghost" id="fitBtn" title="自动压缩字号与间距，让内容落在一页内">适应一页</button>
+      <button class="btn" id="wordBtn">导出 Word</button>
+      <button class="btn primary" id="pdfBtn">导出 PDF</button>
+      <div class="menu-wrap">
+        <button class="btn icon" id="moreBtn" aria-label="更多" title="更多">⋯</button>
+        <div class="menu" id="moreMenu" hidden>
+          <button data-action="print">打印预览</button>
+          <button data-action="export-html">导出独立 HTML</button>
+          <button data-action="export-json">导出 JSON</button>
+          <button data-action="import-json">导入 JSON</button>
+          <button data-action="reset-layout">恢复默认版式</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="external-banner" id="externalBanner" hidden>
+    <span>检测到外部修改（AI 可能更新了内容）。</span>
+    <button class="btn small primary" id="loadExternalBtn" type="button">载入最新版本</button>
+    <button class="btn small ghost" id="dismissExternalBtn" type="button">保留当前编辑</button>
+  </div>
+
+  <main class="workspace">
+    <aside class="panel">
+      <div class="tabs">
+        <button class="tab active" data-tab="content" type="button">内容</button>
+        <button class="tab" data-tab="layout" type="button">版式</button>
+      </div>
+
+      <div class="panel-scroll" id="contentPanel">
+        <div class="sample-note">当前是示例内容，直接替换成你的信息即可。所有修改都会自动保存在本地。</div>
+
+        <section class="field-card profile-card">
+          <div class="card-head">
+            <h2>基本信息</h2>
+            <span class="card-hint">点击照片可上传</span>
+          </div>
+          <div class="profile-photo-row">
+            <button class="photo-picker" id="photoPicker" type="button" title="上传证件照">
+              <img id="photoPreview" alt="" hidden>
+              <span id="photoPlaceholder">上传<br>照片</span>
+            </button>
+            <div class="photo-meta">
+              <div class="muted">建议使用 3:4 证件照<br>JPG / PNG，小于 5MB</div>
+              <button class="btn small ghost" id="removePhotoBtn" type="button">移除照片</button>
+            </div>
+          </div>
+          <div class="field-grid two">
+            <label class="field"><span>姓名</span><input data-profile="name" autocomplete="off"></label>
+            <label class="field"><span>求职岗位</span><input data-profile="title" autocomplete="off"></label>
+            <label class="field"><span>手机</span><input data-profile="phone" autocomplete="off"></label>
+            <label class="field"><span>邮箱</span><input data-profile="email" autocomplete="off"></label>
+            <label class="field"><span>城市</span><input data-profile="location" autocomplete="off"></label>
+          </div>
+          <label class="field"><span>个人简介</span><textarea data-profile="summary" rows="3" placeholder="用 2-3 句话说明经验、方向和优势"></textarea></label>
+          <div class="links-head">
+            <span>链接</span>
+            <button class="btn small ghost" data-action="add-link" type="button">+ 添加链接</button>
+          </div>
+          <div id="linksList" class="links-list"></div>
+        </section>
+
+        <div class="sections-head">
+          <h2>模块</h2>
+          <span class="muted">拖拽左侧手柄排序</span>
+        </div>
+        <div id="sectionsList"></div>
+
+        <div class="add-section">
+          <span class="muted">添加模块</span>
+          <div class="add-buttons">
+            <button class="btn small" data-add-section="timeline" data-title="工作经历" type="button">工作经历</button>
+            <button class="btn small" data-add-section="timeline" data-title="项目经历" type="button">项目经历</button>
+            <button class="btn small" data-add-section="timeline" data-title="教育背景" type="button">教育背景</button>
+            <button class="btn small" data-add-section="tags" data-title="专业技能" type="button">技能标签</button>
+            <button class="btn small" data-add-section="list" data-title="荣誉奖项" type="button">荣誉奖项</button>
+            <button class="btn small" data-add-section="list" data-title="自定义模块" type="button">自定义模块</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-scroll" id="layoutPanel" hidden>
+        <div class="layout-note">版式参数随数据一起保存，导出 PDF 与右侧预览一致。</div>
+
+        <section class="control-group">
+          <h3>页面结构</h3>
+          <label class="control row"><span>分栏</span>
+            <select id="layoutColumns">
+              <option value="1">单栏</option>
+              <option value="2">双栏（主栏 + 侧栏）</option>
+            </select>
+          </label>
+          <label class="control"><span>侧栏宽度 <output id="sideWidthOut"></output></span>
+            <input type="range" id="layoutSideWidth" min="22" max="48" step="1">
+          </label>
+          <label class="control row"><span>姓名对齐</span>
+            <select id="layoutHeaderAlign">
+              <option value="left">左对齐</option>
+              <option value="center">居中</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="control-group">
+          <h3>字体与密度</h3>
+          <label class="control row"><span>密度预设</span>
+            <select id="layoutDensity">
+              <option value="compact">紧凑</option>
+              <option value="standard">标准</option>
+              <option value="loose">宽松</option>
+              <option value="custom">自定义</option>
+            </select>
+          </label>
+          <label class="control row"><span>字体</span>
+            <select id="layoutFontFamily">
+              <option value="sans">无衬线（推荐）</option>
+              <option value="serif">衬线</option>
+            </select>
+          </label>
+          <label class="control"><span>字号 <output id="fontSizeOut"></output></span>
+            <input type="range" id="layoutFontSize" min="9" max="13" step="0.25">
+          </label>
+          <label class="control"><span>行高 <output id="lineHeightOut"></output></span>
+            <input type="range" id="layoutLineHeight" min="1.3" max="1.9" step="0.05">
+          </label>
+          <label class="control"><span>模块间距 <output id="sectionGapOut"></output></span>
+            <input type="range" id="layoutSectionGap" min="6" max="24" step="1">
+          </label>
+          <label class="control"><span>页边距 <output id="pageMarginOut"></output></span>
+            <input type="range" id="layoutPageMargin" min="8" max="20" step="1">
+          </label>
+        </section>
+
+        <section class="control-group">
+          <h3>样式</h3>
+          <label class="control row"><span>强调色</span>
+            <input type="color" id="layoutAccent">
+          </label>
+          <label class="control row"><span>模块标题</span>
+            <select id="layoutTitleStyle">
+              <option value="line">色块</option>
+              <option value="underline">下划线</option>
+              <option value="plain">纯文字</option>
+            </select>
+          </label>
+          <label class="control row"><span>技能标签</span>
+            <select id="layoutTagStyle">
+              <option value="soft">淡色底</option>
+              <option value="outline">描边</option>
+              <option value="plain">纯文字</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="control-group">
+          <h3>照片</h3>
+          <label class="control row checkbox"><input type="checkbox" id="layoutShowPhoto"><span>显示照片</span></label>
+          <label class="control row"><span>位置</span>
+            <select id="layoutPhotoPosition">
+              <option value="right">右侧</option>
+              <option value="left">左侧</option>
+            </select>
+          </label>
+          <label class="control row"><span>形状</span>
+            <select id="layoutPhotoShape">
+              <option value="rounded">圆角</option>
+              <option value="square">直角</option>
+              <option value="circle">圆形</option>
+            </select>
+          </label>
+          <label class="control"><span>宽度 <output id="photoWidthOut"></output></span>
+            <input type="range" id="layoutPhotoWidth" min="18" max="35" step="1">
+          </label>
+          <label class="control"><span>高度 <output id="photoHeightOut"></output></span>
+            <input type="range" id="layoutPhotoHeight" min="22" max="42" step="1">
+          </label>
+        </section>
+
+        <button class="btn ghost wide" data-action="reset-layout" type="button">恢复默认版式</button>
+      </div>
+    </aside>
+
+    <section class="preview">
+      <div class="preview-bar">
+        <div class="preview-title">实时预览 <span class="preview-badge">A4</span></div>
+        <div id="overflowHint" class="overflow-hint"></div>
+      </div>
+      <div class="preview-scroll" id="previewScroll">
+        <div class="page-scaler" id="pageScaler">
+          <div id="resumeRoot" class="resume-page"></div>
+          <div class="a4-limit" id="a4Limit" hidden></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" hidden></div>
+  <input type="file" id="photoInput" accept="image/png,image/jpeg,image/webp" hidden>
+  <input type="file" id="jsonInput" accept="application/json,.json" hidden>
+  <script src="assets/renderer.js"></script>
+  <script src="assets/editor.js"></script>
+</body>
+</html>
