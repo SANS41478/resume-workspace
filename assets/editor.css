@@ -1090,6 +1090,19 @@ textarea:focus-visible {
   pointer-events: none;
 }
 
+.font-sample {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-left: 3px solid #111111;
+  background: #f5f5f5;
+  color: #111111;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ---------- Preview ---------- */
 
 .preview {
@@ -1352,7 +1365,7 @@ textarea:focus-visible {
 }
 
 .inline-add {
-  display: block;
+  display: none;
   margin-top: 0.8mm;
   padding: 0;
   border: 0;
@@ -1369,6 +1382,7 @@ textarea:focus-visible {
 
 .item:hover .inline-add,
 .skill-item:hover .inline-add {
+  display: block;
   opacity: 1;
 }
 
@@ -1383,6 +1397,7 @@ textarea:focus-visible {
 }
 
 .tag-remove {
+  display: none;
   padding: 0 1px;
   border: 0;
   background: transparent;
@@ -1394,6 +1409,7 @@ textarea:focus-visible {
 }
 
 .tag-wrap:hover .tag-remove {
+  display: inline-block;
   opacity: 1;
 }
 
@@ -1402,6 +1418,7 @@ textarea:focus-visible {
 }
 
 .tag-add {
+  display: none;
   padding: 0 1.5mm;
   border: 1px dashed #cbd5e1;
   border-radius: 1mm;
@@ -1417,6 +1434,7 @@ textarea:focus-visible {
 
 .item:hover .tag-add,
 .skill-item:hover .tag-add {
+  display: inline-block;
   opacity: 1;
 }
 
@@ -1444,6 +1462,7 @@ textarea:focus-visible {
 }
 
 .contact-link-edit {
+  display: none;
   padding: 0 1px;
   border: 0;
   background: transparent;
@@ -1455,6 +1474,7 @@ textarea:focus-visible {
 }
 
 .contact-link-wrap:hover .contact-link-edit {
+  display: inline-block;
   opacity: 1;
 }
 
@@ -1463,6 +1483,7 @@ textarea:focus-visible {
 }
 
 .contact-add {
+  display: none;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1475,6 +1496,7 @@ textarea:focus-visible {
 }
 
 .contact:hover .contact-add {
+  display: inline-block;
   opacity: 1;
 }
 

@@ -16,6 +16,14 @@ from docx.shared import Mm, Pt, RGBColor
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FONT = "Microsoft YaHei"
+FONT_MAP = {
+    "sans": ("Arial", "Microsoft YaHei"),
+    "deng": ("Arial", "DengXian"),
+    "noto-sans": ("Noto Sans", "Noto Sans SC"),
+    "noto-serif": ("Georgia", "Noto Serif SC"),
+    "simhei": ("Arial", "SimHei"),
+    "serif": ("Georgia", "Noto Serif SC"),
+}
 ACTIVE_FONT = "Microsoft YaHei"
 ACTIVE_EAST_FONT = "Microsoft YaHei"
 ACTIVE_SWISS = False
@@ -203,7 +211,7 @@ def add_divider(doc):
 
 def add_section_heading(doc, title, accent, base_size, gap, style, number=None):
     heading = doc.add_paragraph()
-    heading.paragraph_format.space_before = Pt(max(6, gap * 0.7))
+    heading.paragraph_format.space_before = Pt(max(0, gap * 0.7))
     heading.paragraph_format.space_after = Pt(3)
     heading.paragraph_format.keep_with_next = True
 
@@ -341,13 +349,19 @@ def build(data, output_path):
 
     style_preset = layout.get("stylePreset") if layout.get("stylePreset") in ("classic", "swiss-ikb", "swiss-red", "swiss-mono") else "classic"
     ACTIVE_SWISS = style_preset.startswith("swiss")
-    ACTIVE_FONT = "Arial" if ACTIVE_SWISS else "Microsoft YaHei"
-    ACTIVE_EAST_FONT = "Microsoft YaHei"
+    font_family = layout.get("fontFamily") or "sans"
+    if font_family == "serif":
+        font_family = "noto-serif"
+    if font_family not in FONT_MAP:
+        font_family = "sans"
+    ACTIVE_FONT, ACTIVE_EAST_FONT = FONT_MAP[font_family]
+    if font_family == "sans" and not ACTIVE_SWISS:
+        ACTIVE_FONT = "Microsoft YaHei"
     ACTIVE_BULLET = "▪  " if ACTIVE_SWISS else "•  "
 
     base_size = clamp(layout.get("fontSize"), 10, 9, 13)
     line_height = clamp(layout.get("lineHeight"), 1.45, 1.3, 1.9)
-    gap = clamp(layout.get("sectionGap"), 11, 6, 24)
+    gap = clamp(layout.get("sectionGap"), 11, 0, 24)
     margin = clamp(layout.get("pageMargin"), 12, 8, 20)
     accent = normalize_hex(layout.get("accent"))
     photo_width = clamp(layout.get("photoWidth"), 25, 18, 35)

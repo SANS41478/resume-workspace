@@ -32,10 +32,18 @@
     loose: { fontSize: 11.5, lineHeight: 1.7, sectionGap: 18, pageMargin: 16 }
   };
 
+  var FONT_STACKS = {
+    sans: 'Arial, "Helvetica Neue", "Microsoft YaHei", "Noto Sans SC", sans-serif',
+    deng: 'Arial, "Helvetica Neue", "DengXian", "Microsoft YaHei", sans-serif',
+    'noto-sans': '"Noto Sans", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif',
+    'noto-serif': 'Georgia, "Times New Roman", "Noto Serif SC", "Source Han Serif SC", "SimSun", serif',
+    simhei: 'Arial, "Helvetica Neue", "SimHei", "Microsoft YaHei", sans-serif'
+  };
+  var FONT_KEYS = Object.keys(FONT_STACKS);
+
   var STYLE_PRESETS = {
     classic: {
       accent: '#1d4ed8',
-      fontFamily: 'sans',
       titleStyle: 'line',
       tagStyle: 'soft',
       photoShape: 'rounded',
@@ -43,7 +51,6 @@
     },
     'swiss-ikb': {
       accent: '#002FA7',
-      fontFamily: 'sans',
       titleStyle: 'numbered',
       tagStyle: 'square',
       photoShape: 'square',
@@ -51,7 +58,6 @@
     },
     'swiss-red': {
       accent: '#E30613',
-      fontFamily: 'sans',
       titleStyle: 'numbered',
       tagStyle: 'square',
       photoShape: 'square',
@@ -59,7 +65,6 @@
     },
     'swiss-mono': {
       accent: '#111111',
-      fontFamily: 'sans',
       titleStyle: 'numbered',
       tagStyle: 'square',
       photoShape: 'square',
@@ -237,10 +242,10 @@
     });
     layout.columns = Number(layout.columns) === 2 ? 2 : 1;
     layout.sideWidth = clamp(layout.sideWidth, 22, 48, 33);
-    layout.fontFamily = layout.fontFamily === 'serif' ? 'serif' : 'sans';
+    layout.fontFamily = layout.fontFamily === 'serif' ? 'noto-serif' : (FONT_KEYS.indexOf(layout.fontFamily) >= 0 ? layout.fontFamily : 'sans');
     layout.fontSize = clamp(layout.fontSize, 9, 13, 10);
     layout.lineHeight = clamp(layout.lineHeight, 1.3, 1.9, 1.45);
-    layout.sectionGap = clamp(layout.sectionGap, 6, 24, 11);
+    layout.sectionGap = clamp(layout.sectionGap, 0, 24, 11);
     layout.pageMargin = clamp(layout.pageMargin, 8, 20, 12);
     layout.accent = /^#[0-9a-f]{3,8}$/i.test(layout.accent || '') ? layout.accent : '#1d4ed8';
     layout.headerAlign = layout.headerAlign === 'center' ? 'center' : 'left';
@@ -1471,7 +1476,7 @@
     if (!preset || !state.data) return;
     var layout = state.data.layout;
     layout.stylePreset = key;
-    ['accent', 'fontFamily', 'titleStyle', 'tagStyle', 'photoShape', 'headerAlign'].forEach(function (name) {
+    ['accent', 'titleStyle', 'tagStyle', 'photoShape', 'headerAlign'].forEach(function (name) {
       layout[name] = preset[name];
     });
     syncLayoutControls();
@@ -1531,7 +1536,8 @@
       applyDensity(event.target.value);
       syncLayoutControls();
     } else if (id === 'layoutFontFamily') {
-      layout.fontFamily = event.target.value === 'serif' ? 'serif' : 'sans';
+      layout.fontFamily = FONT_KEYS.indexOf(event.target.value) >= 0 ? event.target.value : 'sans';
+      updateFontSample();
     } else if (id === 'layoutHeaderAlign') {
       layout.headerAlign = event.target.value === 'center' ? 'center' : 'left';
     } else if (id === 'layoutTitleStyle') {
@@ -1564,6 +1570,14 @@
     $('#photoHeightOut').textContent = layout.photoHeight + 'mm';
   }
 
+  function updateFontSample() {
+    var sample = $('#fontSample');
+    var select = $('#layoutFontFamily');
+    if (!sample || !select || !state.data) return;
+    var key = state.data.layout.fontFamily;
+    sample.style.fontFamily = FONT_STACKS[key] || FONT_STACKS.sans;
+  }
+
   function normalizeHex(value) {
     if (/^#[0-9a-f]{3}$/i.test(value)) {
       return '#' + value.slice(1).split('').map(function (ch) { return ch + ch; }).join('');
@@ -1583,6 +1597,7 @@
     $('#layoutColumns').value = String(layout.columns);
     $('#layoutSideWidth').value = layout.sideWidth;
     $('#layoutFontFamily').value = layout.fontFamily;
+    updateFontSample();
     $('#layoutDensity').value = layout.density;
     $('#layoutFontSize').value = layout.fontSize;
     $('#layoutLineHeight').value = layout.lineHeight;

@@ -2,6 +2,14 @@
   'use strict';
 
   var ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  var FONT_KEYS = {
+    sans: 'sans',
+    deng: 'deng',
+    'noto-sans': 'noto-sans',
+    'noto-serif': 'noto-serif',
+    simhei: 'simhei',
+    serif: 'noto-serif'
+  };
 
   function esc(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
@@ -400,17 +408,18 @@
     var stylePreset = ['classic', 'swiss-ikb', 'swiss-red', 'swiss-mono'].indexOf(layout.stylePreset) >= 0
       ? layout.stylePreset
       : 'classic';
+    var fontKey = FONT_KEYS[layout.fontFamily] || 'sans';
     root.className = 'resume-page style-' + stylePreset +
       (stylePreset.indexOf('swiss') === 0 ? ' style-swiss' : '') +
       (options.editor ? ' editor-mode' : '') +
-      ' font-' + (layout.fontFamily === 'serif' ? 'serif' : 'sans') +
+      ' font-' + fontKey +
       ' titles-' + (layout.titleStyle || 'line') +
       ' tags-' + (layout.tagStyle || 'soft') +
       ' columns-' + (Number(layout.columns) === 2 ? '2' : '1');
     root.style.setProperty('--accent', /^#[0-9a-f]{3,8}$/i.test(layout.accent || '') ? layout.accent : '#1d4ed8');
     root.style.setProperty('--fs', number(layout.fontSize, 10.5, 8, 14) + 'pt');
     root.style.setProperty('--lh', String(number(layout.lineHeight, 1.55, 1.2, 2.1)));
-    root.style.setProperty('--gap', number(layout.sectionGap, 14, 4, 30) + 'pt');
+    root.style.setProperty('--gap', number(layout.sectionGap, 14, 0, 30) + 'pt');
     root.style.setProperty('--margin', number(layout.pageMargin, 14, 6, 24) + 'mm');
     root.style.setProperty('--photo-w', number(layout.photoWidth, 25, 16, 40) + 'mm');
     root.style.setProperty('--photo-h', number(layout.photoHeight, 32, 20, 50) + 'mm');

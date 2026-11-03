@@ -26,8 +26,25 @@
   box-sizing: border-box;
 }
 
+.resume-page.font-sans {
+  font-family: "Microsoft YaHei", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", sans-serif;
+}
+
+.resume-page.font-deng {
+  font-family: Arial, "Helvetica Neue", "DengXian", "Microsoft YaHei", sans-serif;
+}
+
+.resume-page.font-noto-sans {
+  font-family: "Noto Sans", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif;
+}
+
+.resume-page.font-noto-serif,
 .resume-page.font-serif {
-  font-family: "SimSun", "Noto Serif SC", "Source Han Serif SC", serif;
+  font-family: Georgia, "Times New Roman", "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
+}
+
+.resume-page.font-simhei {
+  font-family: Arial, "Helvetica Neue", "SimHei", "Microsoft YaHei", sans-serif;
 }
 
 .resume-page a {
@@ -460,6 +477,10 @@ a.item-title:hover {
   color: #111111;
 }
 
+.style-swiss .contact-item:last-child::before {
+  content: none;
+}
+
 .style-swiss .summary {
   margin-top: 3mm;
   max-width: 168mm;
@@ -476,7 +497,11 @@ a.item-title:hover {
 .style-swiss .section {
   border-top: 1px solid #111111;
   padding-top: 1.2mm;
-  margin-bottom: calc(var(--gap) - 2pt);
+  margin-bottom: var(--gap);
+}
+
+.style-swiss .section:last-child {
+  margin-bottom: 0;
 }
 
 .style-swiss .section-title {
